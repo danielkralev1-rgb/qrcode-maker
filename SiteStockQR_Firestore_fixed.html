@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SiteStock QR — Firestore (Fixed)</title>
+  <meta name="theme-color" content="#0f1620">
+  <style>
+    :root{--pad:14px;--gap:12px;--radius:10px}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b0f14;color:#e6edf3}
+    header{position:sticky;top:0;background:#0f1620;border-bottom:1px solid #1f2b3a;padding:12px 16px;z-index:10}
+    header h1{margin:0;font-size:18px}
+    header small{color:#9fb3c8}
+    main{padding:18px}
+    .card{background:#111823;border:1px solid #1f2b3a;border-radius:12px;padding:16px;margin-bottom:16px}
+    .row{display:flex;gap:var(--gap);flex-wrap:wrap}
+    .row > *{flex:1}
+    input,select,button,textarea{background:#0d1320;color:#e6edf3;border:1px solid #263445;border-radius:8px;padding:10px 12px}
+    input::placeholder,textarea::placeholder{color:#7d91a8}
+    button{cursor:pointer}
+    button.primary{background:#1f6feb;border-color:#2e7bf6}
+    button.warn{background:#8b3a3a;border-color:#a54b4b}
+    button.ghost{background:transparent;border-color:#2a3a4f}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #1f2b3a;padding:10px;text-align:left}
+    th{color:#9fb3c8;font-weight:600}
+    tr.low td{background:#1d2533}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #2c3e55;font-size:12px;color:#9fb3c8}
+    .ok{color:#a3e635}
+    .bad{color:#f87171}
+    .muted{color:#9fb3c8}
+    .tight{margin-top:6px}
+    .hidden{display:none !important}
+    .scanbox{display:grid;grid-template-columns:1fr;gap:10px}
+    video{width:100%;border-radius:12px;border:1px solid #1f2b3a;background:#000}
+    .footer{color:#9fb3c8;font-size:12px;padding:16px;text-align:center}
+    .inline{display:inline-flex;align-items:center;gap:8px}
+    .right{float:right}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
+    .nowrap{white-space:nowrap}
+  </style>
+</head>
+<body>
+<header class="row">
+  <div>
+    <h1>SiteStock QR <small>— Firestore (multi-user)</small></h1>
+    <div id="who" class="muted tight"></div>
+  </div>
+  <div class="row" style="justify-content:flex-end;">
+    <button class="ghost" id="btn-export">Export CSV</button>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="row">
+      <div>
+        <h3 style="margin:0 0 8px 0;">Quick scan</h3>
+        <p class="muted tight">Use your phone or a PC with camera. Native QR via <span class="mono">BarcodeDetector</span>, fallback to manual.</p>
+      </div>
+      <div class="inline right">
+        <span id="support" class="pill">Checking camera support…</span>
+      </div>
+    </div>
+    <div class="scanbox">
+      <video id="video" autoplay playsinline class="hidden"></video>
+      <div class="row">
+        <button class="primary" id="btn-start">Start camera</button>
+        <button class="ghost" id="btn-stop">Stop</button>
+        <input id="manual" placeholder="Or paste QR text (SITESTOCK:SKU|SITE|BIN)">
+        <button id="btn-parse">Apply</button>
+      </div>
+      <div id="scan-result" class="muted"></div>
+      <div id="txn-panel" class="hidden">
+        <div class="row">
+          <div>
+            <div>SKU <span id="sku" class="mono"></span></div>
+            <div class="tight muted">Site: <span id="site"></span> · Bin: <span id="bin"></span></div>
+            <div class="tight">On hand: <b id="onhand">0</b> <span class="muted">/ Min <span id="min">0</span> / Max <span id="max">0</span></span></div>
+          </div>
+          <div class="row" style="align-items:flex-end">
+            <input id="qty" type="number" placeholder="Qty" min="1" value="1" style="max-width:140px">
+            <input id="ref" placeholder="WO/Job ref (optional)">
+            <button class="primary" id="btn-issue">Issue (take)</button>
+            <button id="btn-return">Return</button>
+            <button class="warn" id="btn-adjust">Adjust</button>
+          </div>
+        </div>
+        <div id="alert" class="tight"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3 style="margin:0 0 8px 0;">Add / edit item</h3>
+    <div class="row">
+      <input id="f-sku" placeholder="SKU (unique)" class="mono">
+      <input id="f-desc" placeholder="Description">
+      <input id="f-site" placeholder="Site code (e.g., CAMB)">
+      <input id="f-bin" placeholder="Bin (e.g., A1-03)">
+      <input id="f-uom" placeholder="Unit (e.g., Pack(100))">
+      <input id="f-min" type="number" placeholder="Min">
+      <input id="f-max" type="number" placeholder="Max">
+    </div>
+    <div class="row">
+      <button class="primary" id="btn-save">Save / Update</button>
+      <button class="ghost" id="btn-clear">Clear</button>
+    </div>
+    <p class="muted tight">QR payload: <span class="mono">SITESTOCK:SKU|SITE|BIN</span></p>
+  </section>
+
+  <section class="card">
+    <div class="row" style="align-items:center">
+      <h3 style="margin:0">Inventory</h3>
+      <input class="right" id="search" placeholder="Search SKU or description…" style="max-width:320px">
+    </div>
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>SKU</th><th>Description</th><th class="nowrap">Site</th><th>Bin</th><th>UoM</th><th>On hand</th><th>Min</th><th>Max</th><th>QR text</th><th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3 style="margin:0 0 8px 0;">Activity (last 100)</h3>
+    <table id="txns">
+      <thead><tr><th>When</th><th>User</th><th>Type</th><th>SKU</th><th>Qty</th><th>Ref</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<div class="footer">Multi-user via Firebase Firestore. Paste your config below and refresh.</div>
+
+<script type="module">
+// ===== 1) PASTE YOUR FIREBASE CONFIG HERE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyB1VmA_9BAr1N5pRb50tpApOWd6OqCNMYU",
+  authDomain: "qr-system-d7a45.firebaseapp.com",
+  projectId: "qr-system-d7a45",
+  storageBucket: "qr-system-d7a45.firebasestorage.app",
+  messagingSenderId: "274455017368",
+  appId: "1:274455017368:web:44b3616d1e882aac765ded",
+  measurementId: "G-TRDMHG2MYD"
+};
+// ==============================================
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+(function(){
+  'use strict';
+
+  var $ = function(x){ return document.getElementById(x); };
+  var who = $("who");
+  var tblBody = document.querySelector("#tbl tbody");
+  var txBody = document.querySelector("#txns tbody");
+  var currentUser = null;
+  var unsubscribeInv = null, unsubscribeTx = null;
+  var itemsCache = {};
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Anonymous sign-in
+  signInAnonymously(auth).catch(console.error);
+  onAuthStateChanged(auth, function(u){
+    currentUser = u;
+    if(u){
+      who.textContent = "Signed in (anon) — uid: " + u.uid.slice(0,8) + "…";
+      startRealtime();
+    } else {
+      who.textContent = "Not signed in";
+    }
+  });
+
+  function startRealtime(){
+    // items
+    if (unsubscribeInv) unsubscribeInv();
+    var itemsRef = collection(db, "items");
+    unsubscribeInv = onSnapshot(itemsRef, function(snap){
+      itemsCache = {};
+      var list = [];
+      snap.forEach(function(docSnap){
+        var it = docSnap.data();
+        if(!it.deleted){ itemsCache[it.sku]=it; list.push(it); }
+      });
+      renderInventory(list);
+    });
+    // transactions
+    if (unsubscribeTx) unsubscribeTx();
+    var txRef = collection(db, "transactions");
+    var qtx = query(txRef, orderBy("ts","desc"), limit(100));
+    unsubscribeTx = onSnapshot(qtx, function(snap){
+      var rows = [];
+      snap.forEach(function(d){ rows.push(d.data()); });
+      renderTxns(rows);
+    });
+  }
+
+  function renderInventory(list){
+    var q = $("search").value.toLowerCase();
+    tblBody.innerHTML = "";
+    list
+      .filter(function(it){ return !q || it.sku.toLowerCase().indexOf(q)>=0 || ((it.desc||"").toLowerCase().indexOf(q)>=0); })
+      .sort(function(a,b){ return a.sku.localeCompare(b.sku); })
+      .forEach(function(it){
+        var tr = document.createElement("tr");
+        if((it.min|0)>0 && (it.onhand|0) < (it.min|0)) tr.classList.add("low");
+        tr.innerHTML = ""
+          + "<td class='mono'>" + it.sku + "</td>"
+          + "<td>" + (it.desc||"") + "</td>"
+          + "<td>" + (it.site||"") + "</td>"
+          + "<td>" + (it.bin||"") + "</td>"
+          + "<td>" + (it.uom||"") + "</td>"
+          + "<td>" + (it.onhand|0) + "</td>"
+          + "<td>" + (it.min|0) + "</td>"
+          + "<td>" + (it.max|0) + "</td>"
+          + "<td class='mono'>SITESTOCK:" + it.sku + "|" + (it.site||"") + "|" + (it.bin||"") + "</td>"
+          + "<td>"
+          +   "<button data-act='edit' data-sku='" + it.sku + "'>Edit</button> "
+          +   "<button data-act='del' data-sku='" + it.sku + "' class='warn'>Delete</button>"
+          + "</td>";
+        tblBody.appendChild(tr);
+      });
+  }
+
+  function renderTxns(list){
+    txBody.innerHTML = "";
+    list.forEach(function(t){
+      var when = t.ts && t.ts.toDate ? t.ts.toDate() : (t.ts ? new Date(t.ts) : new Date());
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + when.toLocaleString() + "</td>"
+        + "<td>" + (t.user||"") + "</td>"
+        + "<td>" + (t.type||"") + "</td>"
+        + "<td class='mono'>" + (t.sku||"") + "</td>"
+        + "<td>" + (t.qty||0) + "</td>"
+        + "<td>" + (t.ref||"") + "</td>";
+      txBody.appendChild(tr);
+    });
+  }
+  $("search").addEventListener("input", function(){ renderInventory(Object.values(itemsCache)); });
+
+  document.querySelector("#tbl tbody").addEventListener("click", async function(e){
+    var b = e.target.closest("button"); if(!b) return;
+    var sku = b.getAttribute("data-sku");
+    if (b.getAttribute("data-act")==="edit"){
+      var it = itemsCache[sku]; if(!it) return;
+      $("f-sku").value = it.sku;
+      $("f-desc").value = it.desc||"";
+      $("f-site").value = it.site||"";
+      $("f-bin").value = it.bin||"";
+      $("f-uom").value = it.uom||"";
+      $("f-min").value = it.min||0;
+      $("f-max").value = it.max||0;
+      window.scrollTo({top:0,behavior:"smooth"});
+    } else if (b.getAttribute("data-act")==="del"){
+      if(confirm("Delete item "+sku+"?")){
+        await setDoc(doc(db,"items", sku), { deleted:true, sku: sku }, { merge:true });
+      }
+    }
+  });
+
+  $("btn-save").addEventListener("click", async function(){
+    var sku = $("f-sku").value.trim();
+    var it = {
+      sku: sku,
+      desc: $("f-desc").value.trim(),
+      site: $("f-site").value.trim(),
+      bin: $("f-bin").value.trim(),
+      uom: $("f-uom").value.trim(),
+      min: parseInt($("f-min").value||"0",10),
+      max: parseInt($("f-max").value||"0",10),
+      onhand: (itemsCache[sku]||{}).onhand||0,
+      deleted: false
+    };
+    if(!it.sku){ alert("SKU is required"); return; }
+    await setDoc(doc(db,"items", it.sku), it, { merge:true });
+    alert("Saved");
+  });
+  $("btn-clear").addEventListener("click", function(){
+    ["f-sku","f-desc","f-site","f-bin","f-uom","f-min","f-max"].forEach(function(x){ $(x).value=""; });
+  });
+
+  // CSV helpers with conservative quoting (no backticks)
+  function toCSV(rows){
+    return rows.map(function(r){
+      return r.map(function(x){
+        var s = (x==null? "": String(x));
+        if (/[",\n]/.test(s)){
+          s = '"' + s.replace(/"/g,'""') + '"';
+        }
+        return s;
+      }).join(",");
+    }).join("\n");
+  }
+  $("btn-export").addEventListener("click", function(){
+    var header = ["SKU","Description","Site","Bin","UoM","OnHand","Min","Max","QRText"];
+    var rows = [header];
+    Object.values(itemsCache).forEach(function(it){
+      if(it.deleted) return;
+      rows.push([
+        it.sku, it.desc||"", it.site||"", it.bin||"", it.uom||"",
+        (it.onhand|0), (it.min|0), (it.max|0),
+        "SITESTOCK:" + it.sku + "|" + (it.site||"") + "|" + (it.bin||"")
+      ]);
+    });
+    var blob = new Blob([toCSV(rows)], {type:"text/csv"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "sitestock_inventory.csv";
+    a.click();
+  });
+
+  // ===== QR Scan (camera) =====
+  var supportEl = $("support");
+  var hasBarcode = ("BarcodeDetector" in window);
+  supportEl.textContent = hasBarcode ? "QR scanning supported" : "QR scanning not supported — use manual field";
+
+  var stream=null, detector = hasBarcode ? new BarcodeDetector({ formats:["qr_code"] }) : null;
+  var video = $("video");
+  $("btn-start").addEventListener("click", async function(){
+    if(!hasBarcode){ alert("QR scanning not supported on this browser. Use the manual field."); return; }
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: "environment" } });
+      video.srcObject = stream;
+      video.classList.remove("hidden");
+      scanLoop();
+    }catch(err){
+      alert("Camera error: " + err.message);
+    }
+  });
+  $("btn-stop").addEventListener("click", function(){
+    if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream=null; }
+    video.classList.add("hidden");
+  });
+  async function scanLoop(){
+    if(!stream) return;
+    try{
+      var barcodes = await detector.detect(video);
+      if(barcodes.length>0){
+        var raw = barcodes[0].rawValue.trim();
+        applyQR(raw);
+      }
+      requestAnimationFrame(scanLoop);
+    }catch(err){
+      requestAnimationFrame(scanLoop);
+    }
+  }
+
+  $("btn-parse").addEventListener("click", function(){
+    var raw = $("manual").value.trim();
+    if(!raw) return;
+    applyQR(raw);
+  });
+
+  function parsePayload(raw){
+    if(raw.indexOf("SITESTOCK:") !== 0) return null;
+    var rest = raw.slice("SITESTOCK:".length);
+    var parts = rest.split("|");
+    var sku = (parts[0]||"").trim();
+    if(!sku) return null;
+    return { sku: sku, site: (parts[1]||"").trim(), bin: (parts[2]||"").trim() };
+  }
+
+  function showTxnPanel(it){
+    $("txn-panel").classList.remove("hidden");
+    $("sku").textContent = it.sku;
+    $("site").textContent = it.site || "-";
+    $("bin").textContent = it.bin || "-";
+    $("onhand").textContent = it.onhand|0;
+    $("min").textContent = it.min|0;
+    $("max").textContent = it.max|0;
+    $("qty").value = 1;
+    $("ref").value = "";
+    var warn = (it.min|0)>0 && (it.onhand|0)<(it.min|0);
+    $("alert").innerHTML = warn ? "<span class='bad'>Low stock: on hand (" + (it.onhand|0) + ") below Min (" + (it.min|0) + ").</span>" : "<span class='ok'>OK</span>";
+  }
+
+  async function ensureItem(sku, site, bin){
+    var ref = doc(db,"items", sku);
+    var snap = await getDoc(ref);
+    if(!snap.exists()){
+      var it = { sku: sku, site: site||"", bin: bin||"", onhand:0, min:0, max:0, desc:"", uom:"", deleted:false };
+      await setDoc(ref, it);
+      return it;
+    } else {
+      return snap.data();
+    }
+  }
+
+  async function applyQR(raw){
+    $("scan-result").textContent = "Scanned: " + raw;
+    var parsed = parsePayload(raw);
+    if(!parsed){ alert("Unrecognized QR. Expecting: SITESTOCK:SKU|SITE|BIN"); return; }
+    var it = itemsCache[parsed.sku];
+    if(!it){ it = await ensureItem(parsed.sku, parsed.site, parsed.bin); }
+    if(parsed.site && !it.site) await updateDoc(doc(db,"items", it.sku), { site: parsed.site });
+    if(parsed.bin && !it.bin) await updateDoc(doc(db,"items", it.sku), { bin: parsed.bin });
+    showTxnPanel(itemsCache[it.sku] || it);
+  }
+
+  $("btn-issue").addEventListener("click", function(){ doTxn("Issue",-1); });
+  $("btn-return").addEventListener("click", function(){ doTxn("Return",+1); });
+  $("btn-adjust").addEventListener("click", async function(){
+    var sku = $("sku").textContent;
+    var it = itemsCache[sku] || { onhand:0 };
+    var qStr = prompt("Set on-hand to value:", String(it.onhand|0));
+    var q = parseInt(qStr||"0",10);
+    if(isNaN(q)) return;
+    await updateDoc(doc(db,"items", sku), { onhand: q });
+    await setDoc(doc(collection(db,"transactions")), {
+      ts: serverTimestamp(), user: (currentUser && currentUser.uid) ? currentUser.uid : "anon",
+      type:"Adjust", sku: sku, qty:q, ref: $("ref").value.trim()
+    });
+  });
+
+  async function doTxn(type, sign){
+    var sku = $("sku").textContent;
+    var q = parseInt($("qty").value||"0",10); if(q<=0) return;
+    var refStr = $("ref").value.trim();
+    var itemRef = doc(db,"items", sku);
+    var snap = await getDoc(itemRef);
+    var it = snap.data() || { onhand:0 };
+    var newQty = (it.onhand||0) + sign*q;
+    await updateDoc(itemRef, { onhand: newQty });
+    await setDoc(doc(collection(db,"transactions")), {
+      ts: serverTimestamp(), user: (currentUser && currentUser.uid) ? currentUser.uid : "anon",
+      type: type, sku: sku, qty:q, ref: refStr
+    });
+  }
+
+})(); // end IIFE
+</script>
+</body>
+</html>
