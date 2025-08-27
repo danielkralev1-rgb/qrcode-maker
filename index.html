@@ -14,8 +14,13 @@
   <!-- QR Code generator -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
-  <!-- QR Scanner (works across browsers/devices) -->
-  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <!-- QR Scanner (pinned version + fallback; must be before our script) -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+  <script>
+    if (typeof Html5Qrcode === "undefined") {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"><\/script>');
+    }
+  </script>
 
   <!-- EmailJS (client-side email) -->
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
@@ -143,28 +148,24 @@
   'use strict';
 
   /* =========================
-     0) CONFIG
+     0) CONFIG (YOUR REAL VALUES)
   ========================== */
-  // --- Firebase (paste your config) ---
   const firebaseConfig = {
-  apiKey: "AIzaSyCs9GTOJaCkzMyjwG2pj6VtAbioo9gpJII",
-  authDomain: "qr-stock-fa181.firebaseapp.com",
-  projectId: "qr-stock-fa181",
-  storageBucket: "qr-stock-fa181.firebasestorage.app",
-  messagingSenderId: "844260648786",
-  appId: "1:844260648786:web:03342e843821004a5efc8b",
-  measurementId: "G-YSN71YYVS0"
-    // storageBucket, messagingSenderId, appId optional
+    apiKey: "AIzaSyCs9GTOJaCkzMyjwG2pj6VtAbioo9gpJII",
+    authDomain: "qr-stock-fa181.firebaseapp.com",
+    projectId: "qr-stock-fa181",
+    storageBucket: "qr-stock-fa181.firebasestorage.app",
+    messagingSenderId: "844260648786",
+    appId: "1:844260648786:web:03342e843821004a5efc8b",
+    measurementId: "G-YSN71YYVS0"
   };
 
-  // --- EmailJS (paste your keys) ---
   const EMAILJS_PUBLIC   = "U_cn8XOhqtFEZVTzU";
   const EMAILJS_SERVICE  = "service_03h2h2o";
   const EMAILJS_TEMPLATE = "template_bo23zdq";
-  const ALERT_RECIPIENTS = ["mitie.stocklist.alerts.email@gmail.com"];
+  const ALERT_RECIPIENTS = ["mitie.stocklist.alerts.email@gmail.com"]; // add more if you want
 
-  // --- Roles (simple PIN, no login screen) ---
-  const ADMIN_PIN = "123123"; // ← change this!
+  const ADMIN_PIN = "123123"; // change when you go live
 
   /* =========================
      1) LIB HELPERS
@@ -180,8 +181,11 @@
   firebase.initializeApp(firebaseConfig);
   const db   = firebase.firestore();
   const auth = firebase.auth();
-  // No sign-in UI — silent anonymous session (needed for Firestore; rules can allow anon)
-  auth.signInAnonymously().catch(console.warn);
+
+  // Enable Anonymous sign-in in Firebase Console (Auth → Sign-in method → Anonymous → Enable)
+  auth.signInAnonymously()
+    .then(()=>console.log("Anon auth OK"))
+    .catch(e=>console.error("Anon auth failed:", e));
 
   emailjs.init(EMAILJS_PUBLIC);
 
@@ -262,7 +266,7 @@
      5) FIRESTORE: Inventory
   ========================== */
   const inv = db.collection("inventory"); // docId = item key
-  // We send emails when count hits 2; avoid spam via alertSent flag in doc
+
   async function updateStock(key, details, delta){
     const ref = inv.doc(key);
     const snap = await ref.get();
@@ -272,12 +276,10 @@
       if(newCount < 0) newCount = 0;
 
       let newAlertSent = data.alertSent || false;
-      // If it hits 2 and wasn't alerted, send now
       if(newCount === 2 && !newAlertSent){
         await sendLowStockEmails(details.name, newCount, key);
         newAlertSent = true;
       }
-      // If it goes above 2, reset flag so future drops to 2 alert again
       if(newCount > 2 && newAlertSent) newAlertSent = false;
 
       await ref.update({ count: newCount, details: details || data.details || {}, alertSent: newAlertSent });
@@ -321,7 +323,6 @@
 
   /* =========================
      7) SCANNERS (Add / Remove)
-     NOTE: No Firestore listeners here; just direct writes.
   ========================== */
   function parsePayload(raw){
     if(!raw || raw.indexOf("ITEMQR:")!==0) return null;
@@ -335,8 +336,8 @@
     return null;
   }
 
-  // Scan (Add)
-  let scannerAdd;
+  let scannerAdd, scannerRm;
+
   function startAdd(){
     if(scannerAdd){ try{scannerAdd.stop();}catch{} }
     scannerAdd = new Html5Qrcode("reader-add");
@@ -349,14 +350,12 @@
         if(!p){ alert("Invalid QR"); return; }
         await updateStock(p.key, p.details, +1);
       },
-      (err)=>{}
+      () => {}
     ).catch(err=>{
-      $("scan-result-add").textContent = "Camera error: " + err;
+      $("scan-result-add").textContent = "Camera error: " + err + ". Use HTTPS and allow camera.";
     });
   }
 
-  // Scan (Remove)
-  let scannerRm;
   function startRm(){
     if(scannerRm){ try{scannerRm.stop();}catch{} }
     scannerRm = new Html5Qrcode("reader-rm");
@@ -369,15 +368,14 @@
         if(!p){ alert("Invalid QR"); return; }
         await updateStock(p.key, p.details, -1);
       },
-      (err)=>{}
+      () => {}
     ).catch(err=>{
-      $("scan-result-rm").textContent = "Camera error: " + err;
+      $("scan-result-rm").textContent = "Camera error: " + err + ". Use HTTPS and allow camera.";
     });
   }
 
   /* =========================
-     8) VIEW (Live Dashboard)
-     One realtime listener ONLY here.
+     8) VIEW (Live Dashboard) — one listener here only
   ========================== */
   let unsub = null;
   function attachLiveDashboard(){
@@ -407,7 +405,7 @@
       rows.push({k, count: d.count||0, rec});
     });
     rows
-      .sort((a,b)=>a.rec.name?.localeCompare(b.rec.name||"")||0)
+      .sort((a,b)=> (a.rec.name||"").localeCompare(b.rec.name||""))
       .forEach(({k,count,rec})=>{
         const hay = [rec.name||"", rec.supplier||"", rec.category||"", rec.notes||""].join(" ").toLowerCase();
         if(q && !hay.includes(q)) return;
@@ -428,13 +426,10 @@
            </td>`;
         tbody.appendChild(tr);
       });
-    // apply role visibility for admin column each render
-    applyRole();
+    applyRole(); // show/hide admin column
   }
 
   $("search").addEventListener("input", ()=>{
-    // force a quick re-render using last snapshot if available
-    // (for simplicity, pull fresh; still only one listener)
     inv.get().then(renderTableFromSnapshot);
   });
 
@@ -472,17 +467,16 @@
 
   /* =========================
      9) TAB SWITCHING
-     (Start scanners only when tab visible)
   ========================== */
   document.querySelectorAll(".tab-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+      btn.addEventListener("click", ()=>{}); // noop to keep focus smooth
       btn.classList.add("active");
       const tab = btn.dataset.tab;
       ["create","scanadd","view","scanrm"].forEach(t=>{
         $("tab-"+t).classList.toggle("hidden", t!==tab);
       });
-      // manage features per tab
       if(tab==="scanadd"){ startAdd(); }
       if(tab==="scanrm"){ startRm(); }
       if(tab==="view"){ attachLiveDashboard(); }
@@ -491,9 +485,6 @@
       if(tab!=="scanrm"  && scannerRm ){ try{scannerRm.stop();}catch{}  $("reader-rm").innerHTML=""; }
     });
   });
-
-  // Default: attach dashboard listener once we land on View
-  // (Tab 3 is not default; so no listener until clicked)
 
 })();
 </script>
