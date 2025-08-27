@@ -1,51 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>QR Stock — Create • Scan • View</title>
-  <meta name="theme-color" content="#0f1620">
+  <meta name="theme-color" content="#0f1620" />
   <style>
-    :root{--pad:14px;--gap:12px;--radius:12px}
-    *{box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b0f14;color:#e6edf3}
-    header{position:sticky;top:0;background:#0f1620;border-bottom:1px solid #1f2b3a;padding:12px 16px;z-index:10}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b0f14;color:#e6edf3;margin:0}
+    header{background:#0f1620;padding:12px;border-bottom:1px solid #1f2b3a}
     header h1{margin:0;font-size:18px}
-    header .tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-    .tab-btn{background:#101826;border:1px solid #203043;color:#c8d4e0;border-radius:999px;padding:8px 12px;cursor:pointer}
+    .tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .tab-btn{padding:8px 12px;border-radius:999px;border:1px solid #203043;background:#101826;color:#c8d4e0;cursor:pointer}
     .tab-btn.active{background:#1f6feb;border-color:#2e7bf6;color:#fff}
-    main{padding:18px}
-    .card{background:#101826;border:1px solid #203043;border-radius:var(--radius);padding:16px;margin-bottom:16px}
-    .row{display:flex;gap:var(--gap);flex-wrap:wrap}
-    .row > *{flex:1}
-    input,textarea,button,select{background:#0d1320;color:#e6edf3;border:1px solid #263445;border-radius:10px;padding:10px 12px}
-    input::placeholder,textarea::placeholder{color:#94a6ba}
-    button{cursor:pointer}
+    main{padding:16px}
+    .card{background:#101826;border:1px solid #203043;border-radius:12px;padding:14px;margin-bottom:14px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .row>*{flex:1}
+    input,textarea,button{background:#0d1320;color:#e6edf3;border:1px solid #263445;border-radius:10px;padding:10px}
     button.primary{background:#1f6feb;border-color:#2e7bf6}
     button.warn{background:#8b3a3a;border-color:#a54b4b}
-    table{width:100%;border-collapse:collapse}
-    th,td{border-bottom:1px solid #203043;padding:10px;text-align:left}
-    th{color:#9fb3c8;font-weight:600}
     .muted{color:#9fb3c8}
-    .tight{margin-top:6px}
     .hidden{display:none !important}
-    video{width:100%;border-radius:12px;border:1px solid #203043;background:#000}
-    .qrbox{display:flex;align-items:center;justify-content:center;min-height:220px;border:1px dashed #2a3a4f;border-radius:12px;padding:12px}
-    .footer{color:#9fb3c8;font-size:12px;padding:16px;text-align:center}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
-    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #2c3e55;font-size:12px;color:#9fb3c8}
-    .nowrap{white-space:nowrap}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media (max-width:900px){ .grid2{grid-template-columns:1fr} }
+    .qrbox{display:flex;align-items:center;justify-content:center;min-height:220px;border:1px dashed #2a3a4f;border-radius:12px}
+    video{width:100%;border:1px solid #203043;border-radius:12px;background:#000}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #203043;text-align:left}
+    th{color:#9fb3c8}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .btn-qty{padding:6px 10px;border-radius:8px}
   </style>
 </head>
 <body>
 <header>
-  <h1>QR Stock — <small class="muted">Create • Scan • View</small></h1>
+  <h1>QR Stock</h1>
   <div class="tabs">
-    <button class="tab-btn active" data-tab="create">1) Create QR Codes</button>
-    <button class="tab-btn" data-tab="scan">2) Scan QR Codes</button>
-    <button class="tab-btn" data-tab="view">3) View All Items</button>
+    <button class="tab-btn active" data-tab="create">1) Create</button>
+    <button class="tab-btn" data-tab="scan">2) Scan</button>
+    <button class="tab-btn" data-tab="view">3) View</button>
   </div>
 </header>
 
@@ -53,164 +44,286 @@
   <!-- TAB 1: CREATE -->
   <section id="tab-create" class="card">
     <h3>Create QR Codes</h3>
-    <p class="muted tight">Enter item details → Generate → Download or Print the QR code.</p>
-    <div class="grid2">
-      <div>
-        <div class="row">
-          <input id="c-name" placeholder="Item name (e.g., Red Pen)">
-          <input id="c-supplier" placeholder="Supplier / Company">
-        </div>
-        <div class="row">
-          <input id="c-date" type="date">
-          <input id="c-category" placeholder="Category (e.g., Stationery)">
-        </div>
-        <textarea id="c-notes" placeholder="Notes (e.g., bought today)"></textarea>
-        <div class="row">
-          <button class="primary" id="btn-generate">Generate QR</button>
-          <button id="btn-clear-create">Clear</button>
-        </div>
-      </div>
-      <div>
-        <div class="qrbox">
-          <canvas id="qrCanvas" class="hidden"></canvas>
-          <div id="qrPlaceholder" class="muted">Your QR code will appear here</div>
-        </div>
-        <div class="row tight">
-          <button id="btn-download" class="hidden">Download PNG</button>
-          <button id="btn-print" class="hidden">Print</button>
-        </div>
-        <div class="tight muted">Payload: <span id="payload" class="mono"></span></div>
-      </div>
+    <p class="muted">Enter item details → Generate → Download/Print the QR.</p>
+    <div class="row">
+      <input id="c-name" placeholder="Item name (e.g., Red Pen)" />
+      <input id="c-supplier" placeholder="Supplier / Company" />
     </div>
+    <div class="row">
+      <input id="c-date" type="date" />
+      <input id="c-category" placeholder="Category (e.g., Stationery)" />
+    </div>
+    <textarea id="c-notes" placeholder="Notes (e.g., bought today)"></textarea>
+    <div class="row">
+      <button class="primary" id="btn-generate">Generate</button>
+      <button id="btn-clear-create">Clear</button>
+    </div>
+    <div class="qrbox" style="margin-top:10px">
+      <canvas id="qrCanvas" class="hidden"></canvas>
+      <div id="qrPlaceholder" class="muted">Your QR code will appear here</div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="btn-download" class="hidden">Download PNG</button>
+      <button id="btn-print" class="hidden">Print</button>
+    </div>
+    <p class="muted">Payload: <span id="payload" class="mono"></span></p>
   </section>
 
   <!-- TAB 2: SCAN -->
   <section id="tab-scan" class="card hidden">
     <h3>Scan QR Codes</h3>
-    <p class="muted tight">Use your device camera, or paste the QR text manually.</p>
+    <p class="muted">Use the camera (if supported) or paste the QR text manually.</p>
     <div class="row">
-      <span id="support" class="pill">Checking camera…</span>
-    </div>
-    <div class="row">
-      <button class="primary" id="btn-start">Start camera</button>
+      <button class="primary" id="btn-start">Start Camera</button>
       <button id="btn-stop">Stop</button>
-      <input id="manual" placeholder="Or paste QR text here (starts with ITEMQR:)">
+      <input id="manual" placeholder="Or paste QR text (starts with ITEMQR:)" />
       <button id="btn-apply">Apply</button>
     </div>
-    <video id="video" autoplay playsinline class="hidden"></video>
-    <div id="scan-result" class="muted tight"></div>
+    <video id="video" autoplay playsinline class="hidden" style="margin-top:10px"></video>
+    <p id="scan-result" class="muted"></p>
+    <p id="support" class="muted"></p>
   </section>
 
   <!-- TAB 3: VIEW -->
   <section id="tab-view" class="card hidden">
     <div class="row" style="align-items:center">
       <h3>All Items</h3>
-      <input id="search" placeholder="Search name/supplier/category…" style="max-width:320px">
+      <input id="search" placeholder="Search name/supplier/category…" style="max-width:320px" />
     </div>
     <table id="tbl">
       <thead>
         <tr>
-          <th>Count</th><th>Name</th><th>Supplier</th><th>Date</th><th>Category</th><th>Notes</th><th class="nowrap">Key</th>
+          <th>Count</th>
+          <th>Name</th>
+          <th>Supplier</th>
+          <th>Category</th>
+          <th>Notes</th>
+          <th class="mono">Key</th>
+          <th>Adjust</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
-    <div class="row">
+    <div class="row" style="margin-top:10px">
       <button id="btn-export">Export CSV</button>
       <button id="btn-clear-inventory" class="warn">Clear Inventory</button>
     </div>
   </section>
 </main>
 
-<div class="footer">No backend needed. Data stays on this device (localStorage). You can export CSV anytime.</div>
-
-<!-- QRCode.js -->
+<!-- QR Code generator -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 <script>
 (function(){
   'use strict';
 
+  // -------- Helpers --------
   function $(id){ return document.getElementById(id); }
   function djb2(str){ var h=5381; for(var i=0;i<str.length;i++){ h=((h<<5)+h)+str.charCodeAt(i); } return (h>>>0).toString(36); }
   function canon(obj){ return JSON.stringify(obj, Object.keys(obj).sort()); }
   function save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
   function load(k){ try{return JSON.parse(localStorage.getItem(k)||"null");}catch(e){return null;} }
-  function toCSV(rows){ return rows.map(r=>r.map(x=>{var s=String(x||""); if(/[",\n]/.test(s)) s='"'+s.replace(/"/g,'""')+'"'; return s;}).join(",")).join("\\n"); }
+  function toCSV(rows){
+    return rows.map(r => r.map(x => {
+      var s = String(x==null ? "" : x);
+      if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+      return s;
+    }).join(",")).join("\n");
+  }
 
-  var inventory = load("qrstock_inventory_v1") || {};
+  // -------- State --------
+  var INV_KEY = "qrstock_inventory_v1";
+  var inventory = load(INV_KEY) || {};     // key -> { details, count }
 
-  // Tabs
-  document.querySelectorAll(".tab-btn").forEach(b=>{
-    b.addEventListener("click", ()=>{
+  // -------- Tabs --------
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
       document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
-      b.classList.add("active");
-      ["create","scan","view"].forEach(t=>{
-        $("tab-"+t).classList.toggle("hidden", t!==b.dataset.tab);
-      });
+      btn.classList.add("active");
+      var tab = btn.dataset.tab;
+      ["create","scan","view"].forEach(t => $("tab-"+t).classList.toggle("hidden", t!==tab));
     });
   });
 
-  // Create QR
+  // -------- Create QR --------
   function buildPayload(){
-    var obj={v:1,name:$("c-name").value.trim(),supplier:$("c-supplier").value.trim(),date:$("c-date").value,category:$("c-category").value.trim(),notes:$("c-notes").value.trim()};
-    Object.keys(obj).forEach(k=>{ if(!obj[k]) delete obj[k]; });
-    var json=canon(obj), text="ITEMQR:"+json, key=djb2(json);
-    return {obj,json,text,key};
+    var obj = {
+      v: 1,
+      name: $("c-name").value.trim(),
+      supplier: $("c-supplier").value.trim(),
+      date: $("c-date").value || "",
+      category: $("c-category").value.trim(),
+      notes: $("c-notes").value.trim()
+    };
+    Object.keys(obj).forEach(k => { if (!obj[k]) delete obj[k]; });
+    var json = canon(obj);
+    var text = "ITEMQR:" + json;
+    var key = djb2(json);
+    return { obj, json, text, key };
   }
 
   $("btn-generate").addEventListener("click", ()=>{
-    var p=buildPayload();
-    if(!p.obj.name){ alert("Item name required"); return; }
-    $("payload").textContent=p.text;
-    $("qrPlaceholder").classList.add("hidden"); $("qrCanvas").classList.remove("hidden");
-    QRCode.toCanvas($("qrCanvas"), p.text,{width:220});
-    $("btn-download").classList.remove("hidden"); $("btn-print").classList.remove("hidden");
-    $("btn-download")._payload=p;
+    var p = buildPayload();
+    if (!p.obj.name) { alert("Item name is required"); return; }
+    $("payload").textContent = p.text;
+    $("qrPlaceholder").classList.add("hidden");
+    $("qrCanvas").classList.remove("hidden");
+    QRCode.toCanvas($("qrCanvas"), p.text, { width: 220 });
+    $("btn-download").classList.remove("hidden");
+    $("btn-print").classList.remove("hidden");
+    $("btn-download")._payload = p;
   });
 
   $("btn-clear-create").addEventListener("click", ()=>{
-    ["c-name","c-supplier","c-date","c-category","c-notes"].forEach(id=>$(id).value="");
-    $("payload").textContent=""; $("qrCanvas").classList.add("hidden"); $("qrPlaceholder").classList.remove("hidden");
-    $("btn-download").classList.add("hidden"); $("btn-print").classList.add("hidden");
+    ["c-name","c-supplier","c-date","c-category","c-notes"].forEach(id => $(id).value="");
+    $("payload").textContent = "";
+    $("qrCanvas").classList.add("hidden");
+    $("qrPlaceholder").classList.remove("hidden");
+    $("btn-download").classList.add("hidden");
+    $("btn-print").classList.add("hidden");
   });
 
   $("btn-download").addEventListener("click", function(){
-    var c=$("qrCanvas"), link=document.createElement("a"), p=this._payload;
-    link.download=(p&&p.obj.name?p.obj.name.replace(/\\s+/g,"_"):"qr")+".png"; link.href=c.toDataURL(); link.click();
+    var p = this._payload;
+    var link = document.createElement("a");
+    link.download = (p && p.obj.name ? p.obj.name.replace(/\s+/g,"_") : "qr") + ".png";
+    link.href = $("qrCanvas").toDataURL();
+    link.click();
   });
 
   $("btn-print").addEventListener("click", ()=>{
-    var dataUrl=$("qrCanvas").toDataURL(), w=window.open("","_blank");
-    w.document.write("<img src='"+dataUrl+"' style='width:300px'>"); w.print();
+    var dataUrl = $("qrCanvas").toDataURL();
+    var w = window.open("", "_blank");
+    if (!w) { alert("Popup blocked. Allow popups to print."); return; }
+    w.document.write("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Print QR</title></head><body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'><img src='"+dataUrl+"' width='300'></body></html>");
+    w.document.close(); w.focus(); w.print();
   });
 
-  // Scan QR
-  var hasBarcode=("BarcodeDetector" in window), detector=hasBarcode?new BarcodeDetector({formats:["qr_code"]}):null, stream=null;
-  $("support").textContent=hasBarcode?"Camera scanning supported":"Camera not supported — use manual";
+  // -------- Scan (camera support) --------
+  var support = $("support");
+  var hasBarcode = ("BarcodeDetector" in window);
+  var detector = hasBarcode ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
+  var stream = null;
+
+  support.textContent = hasBarcode
+    ? "Camera scanning supported."
+    : "Camera scanning not supported — use manual field.";
 
   $("btn-start").addEventListener("click", async ()=>{
-    if(!hasBarcode){alert("Not supported");return;}
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
-    $("video").srcObject=stream; $("video").classList.remove("hidden"); scanLoop();
+    if (!detector) { alert("BarcodeDetector not supported in this browser. Use manual paste."); return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      $("video").srcObject = stream;
+      $("video").classList.remove("hidden");
+      scanLoop();
+    } catch (err) {
+      alert("Camera error: " + err.message);
+    }
   });
-  $("btn-stop").addEventListener("click", ()=>{ if(stream){stream.getTracks().forEach(t=>t.stop());} $("video").classList.add("hidden"); stream=null; });
 
-  async function scanLoop(){ if(!stream) return; try{ var codes=await detector.detect($("video")); if(codes.length) applyPayload(codes[0].rawValue.trim()); }catch(e){} requestAnimationFrame(scanLoop); }
+  $("btn-stop").addEventListener("click", ()=>{
+    if (stream) { stream.getTracks().forEach(t=>t.stop()); stream = null; }
+    $("video").classList.add("hidden");
+  });
 
-  $("btn-apply").addEventListener("click", ()=>{ var raw=$("manual").value.trim(); if(raw) applyPayload(raw); });
+  async function scanLoop(){
+    if (!stream) return;
+    try {
+      var codes = await detector.detect($("video"));
+      if (codes.length > 0) {
+        var raw = codes[0].rawValue.trim();
+        applyPayload(raw);
+      }
+    } catch (e) { /* ignore frame errors */ }
+    requestAnimationFrame(scanLoop);
+  }
 
-  function parsePayload(raw){ if(!raw.startsWith("ITEMQR:")) return null; try{ var obj=JSON.parse(raw.slice(7)); if(obj&&obj.v===1&&obj.name) return {obj,json:raw.slice(7),key:djb2(raw.slice(7))}; }catch(e){} return null; }
+  $("btn-apply").addEventListener("click", ()=>{
+    var raw = $("manual").value.trim();
+    if (raw) applyPayload(raw);
+  });
 
-  function applyPayload(raw){ $("scan-result").textContent="Scanned: "+raw.slice(0,80); var parsed=parsePayload(raw); if(!parsed){alert("Invalid QR");return;} if(!inventory[parsed.key]) inventory[parsed.key]={details:parsed.obj,count:0}; inventory[parsed.key].count++; save("qrstock_inventory_v1",inventory); renderTable(); }
+  function parsePayload(raw){
+    if (!raw.startsWith("ITEMQR:")) return null;
+    try {
+      var json = raw.slice(7);
+      var obj = JSON.parse(json);
+      if (obj && obj.v === 1 && obj.name) {
+        return { obj, json, key: djb2(json) };
+      }
+    } catch(e){}
+    return null;
+  }
 
-  // View
-  function renderTable(){ var q=($("search").value||"").toLowerCase(), tbody=$("tbl").querySelector("tbody"); tbody.innerHTML=""; Object.keys(inventory).sort().forEach(k=>{ var rec=inventory[k],d=rec.details,text=(d.name+" "+(d.supplier||"")+" "+(d.category||"")+" "+(d.notes||"")).toLowerCase(); if(q && !text.includes(q)) return; var tr=document.createElement("tr"); tr.innerHTML="<td>"+rec.count+"</td><td>"+(d.name||"")+"</td><td>"+(d.supplier||"")+"</td><td>"+(d.date||"")+"</td><td>"+(d.category||"")+"</td><td>"+(d.notes||"")+"</td><td class='mono'>"+k+"</td>"; tbody.appendChild(tr); }); }
+  function applyPayload(raw){
+    $("scan-result").textContent = "Scanned: " + raw.slice(0,80) + (raw.length>80 ? "…" : "");
+    var parsed = parsePayload(raw);
+    if (!parsed) { alert("Unrecognized QR format. Expected ITEMQR:{...}"); return; }
+    if (!inventory[parsed.key]) inventory[parsed.key] = { details: parsed.obj, count: 0 };
+    inventory[parsed.key].count += 1;
+    save(INV_KEY, inventory);
+    renderTable();
+  }
+
+  // -------- View (with + / − buttons) --------
+  function renderTable(){
+    var q = ($("search").value || "").toLowerCase();
+    var tbody = $("tbl").querySelector("tbody");
+    tbody.innerHTML = "";
+    Object.keys(inventory).sort().forEach(key=>{
+      var rec = inventory[key], d = rec.details || {};
+      var hay = [d.name||"", d.supplier||"", d.category||"", d.notes||""].join(" ").toLowerCase();
+      if (q && !hay.includes(q)) return;
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td>"+(rec.count||0)+"</td>"+
+        "<td>"+(d.name||"")+"</td>"+
+        "<td>"+(d.supplier||"")+"</td>"+
+        "<td>"+(d.category||"")+"</td>"+
+        "<td>"+(d.notes||"")+"</td>"+
+        "<td class='mono'>"+key+"</td>"+
+        "<td>"+
+          "<button class='btn-qty' data-act='dec' data-key='"+key+"'>−</button> "+
+          "<button class='btn-qty' data-act='inc' data-key='"+key+"'>+</button>"+
+        "</td>";
+      tbody.appendChild(tr);
+    });
+  }
+
   $("search").addEventListener("input", renderTable);
 
-  $("btn-export").addEventListener("click", ()=>{ var header=["Count","Name","Supplier","Date","Category","Notes","Key"], rows=[header]; Object.keys(inventory).forEach(k=>{ var rec=inventory[k],d=rec.details; rows.push([rec.count,d.name||"",d.supplier||"",d.date||"",d.category||"",d.notes||"",k]); }); var blob=new Blob([toCSV(rows)],{type:"text/csv"}),a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="qrstock_items.csv"; a.click(); });
+  document.querySelector("#tbl tbody").addEventListener("click", (e)=>{
+    var btn = e.target.closest("button"); if (!btn) return;
+    var key = btn.getAttribute("data-key"); if (!key || !inventory[key]) return;
+    var act = btn.getAttribute("data-act");
+    if (act === "inc") inventory[key].count += 1;
+    if (act === "dec" && inventory[key].count > 0) inventory[key].count -= 1;
+    save(INV_KEY, inventory);
+    renderTable();
+  });
 
-  $("btn-clear-inventory").addEventListener("click", ()=>{ if(confirm("Clear inventory?")){inventory={}; save("qrstock_inventory_v1",inventory); renderTable(); } });
+  $("btn-export").addEventListener("click", ()=>{
+    var header = ["Count","Name","Supplier","Category","Notes","Key"];
+    var rows = [header];
+    Object.keys(inventory).forEach(k=>{
+      var r = inventory[k], d = r.details || {};
+      rows.push([r.count||0, d.name||"", d.supplier||"", d.category||"", d.notes||"", k]);
+    });
+    var blob = new Blob([toCSV(rows)], {type:"text/csv"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "inventory.csv";
+    a.click();
+  });
 
+  $("btn-clear-inventory").addEventListener("click", ()=>{
+    if (!confirm("Clear all inventory?")) return;
+    inventory = {};
+    save(INV_KEY, inventory);
+    renderTable();
+  });
+
+  // Init
   renderTable();
 })();
 </script>
