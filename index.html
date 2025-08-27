@@ -3,48 +3,74 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>QR Stock — Create • Scan • View</title>
+  <title>QR Stock Cloud — Roles • Realtime Dashboard</title>
   <meta name="theme-color" content="#0f1620" />
+
+  <!-- Firebase (Compat for simple globals) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+
+  <!-- QR Code generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+  <!-- QR Scanner (works across browsers/devices) -->
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+
+  <!-- EmailJS (client-side email) -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b0f14;color:#e6edf3;margin:0}
-    header{background:#0f1620;padding:12px;border-bottom:1px solid #1f2b3a}
-    header h1{margin:0;font-size:18px}
-    .tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-    .tab-btn{padding:8px 12px;border-radius:999px;border:1px solid #203043;background:#101826;color:#c8d4e0;cursor:pointer}
-    .tab-btn.active{background:#1f6feb;border-color:#2e7bf6;color:#fff}
-    main{padding:16px}
-    .card{background:#101826;border:1px solid #203043;border-radius:12px;padding:14px;margin-bottom:14px}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
+    :root{--panel:#101826;--border:#203043;--ink:#e6edf3;--muted:#9fb3c8;--accent:#1f6feb}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b0f14;color:var(--ink)}
+    header{background:#0f1620;padding:14px;border-bottom:1px solid #1f2b3a;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    header h1{margin:0;font-size:20px}
+    .role{font-size:12px;color:var(--muted)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab-btn{padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:#c8d4e0;cursor:pointer}
+    .tab-btn.active{background:var(--accent);border-color:#2e7bf6;color:#fff}
+    main{padding:18px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:18px;box-shadow:0 2px 6px rgba(0,0,0,0.5)}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
     .row>*{flex:1}
-    input,textarea,button{background:#0d1320;color:#e6edf3;border:1px solid #263445;border-radius:10px;padding:10px}
-    button.primary{background:#1f6feb;border-color:#2e7bf6}
+    input,textarea,button{background:#0d1320;color:var(--ink);border:1px solid #263445;border-radius:10px;padding:10px}
+    button.primary{background:var(--accent);border-color:#2e7bf6}
     button.warn{background:#8b3a3a;border-color:#a54b4b}
-    .muted{color:#9fb3c8}
-    .hidden{display:none !important}
+    .muted{color:var(--muted)}
+    .hidden{display:none!important}
     .qrbox{display:flex;align-items:center;justify-content:center;min-height:220px;border:1px dashed #2a3a4f;border-radius:12px}
-    video{width:100%;border:1px solid #203043;border-radius:12px;background:#000}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #203043;text-align:left}
-    th{color:#9fb3c8}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left}
+    th{color:var(--muted)}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
     .btn-qty{padding:6px 10px;border-radius:8px}
+    .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .right{margin-left:auto}
+    .pill{padding:4px 10px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:12px}
   </style>
 </head>
 <body>
 <header>
-  <h1>QR Stock</h1>
+  <div>
+    <h1>QR Stock Cloud</h1>
+    <div class="role">Role: <span id="roleLabel">Viewer</span> • <button id="btnSetRole">Set Role (PIN)</button></div>
+  </div>
   <div class="tabs">
     <button class="tab-btn active" data-tab="create">1) Create</button>
-    <button class="tab-btn" data-tab="scan">2) Scan</button>
-    <button class="tab-btn" data-tab="view">3) View</button>
+    <button class="tab-btn" data-tab="scanadd">2) Scan (Add)</button>
+    <button class="tab-btn" data-tab="view">3) View (Live)</button>
+    <button class="tab-btn" data-tab="scanrm">4) Scan (Remove)</button>
   </div>
 </header>
 
 <main>
-  <!-- TAB 1: CREATE -->
+  <!-- Tab 1: Create -->
   <section id="tab-create" class="card">
-    <h3>Create QR Codes</h3>
-    <p class="muted">Enter item details → Generate → Download/Print the QR.</p>
+    <div class="toolbar">
+      <h3 style="margin:0">Create QR Codes</h3>
+      <span class="pill">Print & stick these labels</span>
+    </div>
     <div class="row">
       <input id="c-name" placeholder="Item name (e.g., Red Pen)" />
       <input id="c-supplier" placeholder="Supplier / Company" />
@@ -53,7 +79,7 @@
       <input id="c-date" type="date" />
       <input id="c-category" placeholder="Category (e.g., Stationery)" />
     </div>
-    <textarea id="c-notes" placeholder="Notes (e.g., bought today)"></textarea>
+    <textarea id="c-notes" placeholder="Notes (e.g., bought today from XYZ)"></textarea>
     <div class="row">
       <button class="primary" id="btn-generate">Generate</button>
       <button id="btn-clear-create">Clear</button>
@@ -69,262 +95,406 @@
     <p class="muted">Payload: <span id="payload" class="mono"></span></p>
   </section>
 
-  <!-- TAB 2: SCAN -->
-  <section id="tab-scan" class="card hidden">
-    <h3>Scan QR Codes</h3>
-    <p class="muted">Use the camera (if supported) or paste the QR text manually.</p>
-    <div class="row">
-      <button class="primary" id="btn-start">Start Camera</button>
-      <button id="btn-stop">Stop</button>
-      <input id="manual" placeholder="Or paste QR text (starts with ITEMQR:)" />
-      <button id="btn-apply">Apply</button>
+  <!-- Tab 2: Scan Add -->
+  <section id="tab-scanadd" class="card hidden">
+    <div class="toolbar">
+      <h3 style="margin:0">Scan (Add)</h3>
+      <span class="pill">Camera scanner works on iPhone/Android/desktop</span>
     </div>
-    <video id="video" autoplay playsinline class="hidden" style="margin-top:10px"></video>
-    <p id="scan-result" class="muted"></p>
-    <p id="support" class="muted"></p>
+    <div id="reader-add" style="width:320px"></div>
+    <p id="scan-result-add" class="muted"></p>
   </section>
 
-  <!-- TAB 3: VIEW -->
+  <!-- Tab 3: View (Live Dashboard) -->
   <section id="tab-view" class="card hidden">
-    <div class="row" style="align-items:center">
-      <h3>All Items</h3>
-      <input id="search" placeholder="Search name/supplier/category…" style="max-width:320px" />
+    <div class="toolbar">
+      <h3 style="margin:0">All Items (Live)</h3>
+      <input id="search" placeholder="Search…" style="max-width:320px" />
+      <span class="right muted" id="liveState">Live: connected</span>
     </div>
     <table id="tbl">
       <thead>
         <tr>
-          <th>Count</th>
-          <th>Name</th>
-          <th>Supplier</th>
-          <th>Category</th>
-          <th>Notes</th>
-          <th class="mono">Key</th>
-          <th>Adjust</th>
+          <th>Count</th><th>Name</th><th>Supplier</th><th>Category</th>
+          <th>Notes</th><th class="mono">Key</th><th>Adjust</th><th class="admin-only">Admin</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
-    <div class="row" style="margin-top:10px">
+    <div class="toolbar" style="margin-top:10px">
       <button id="btn-export">Export CSV</button>
-      <button id="btn-clear-inventory" class="warn">Clear Inventory</button>
+      <button id="btn-clear" class="warn admin-only">Clear All (Admin)</button>
     </div>
+  </section>
+
+  <!-- Tab 4: Scan Remove -->
+  <section id="tab-scanrm" class="card hidden">
+    <div class="toolbar">
+      <h3 style="margin:0">Scan (Remove)</h3>
+      <span class="pill">Each scan decrements stock</span>
+    </div>
+    <div id="reader-rm" style="width:320px"></div>
+    <p id="scan-result-rm" class="muted"></p>
   </section>
 </main>
 
-<!-- QR Code generator -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 <script>
 (function(){
   'use strict';
 
-  // -------- Helpers --------
+  /* =========================
+     0) CONFIG
+  ========================== */
+  // --- Firebase (paste your config) ---
+  const firebaseConfig = {
+  apiKey: "AIzaSyCs9GTOJaCkzMyjwG2pj6VtAbioo9gpJII",
+  authDomain: "qr-stock-fa181.firebaseapp.com",
+  projectId: "qr-stock-fa181",
+  storageBucket: "qr-stock-fa181.firebasestorage.app",
+  messagingSenderId: "844260648786",
+  appId: "1:844260648786:web:03342e843821004a5efc8b",
+  measurementId: "G-YSN71YYVS0"
+    // storageBucket, messagingSenderId, appId optional
+  };
+
+  // --- EmailJS (paste your keys) ---
+  const EMAILJS_PUBLIC   = "U_cn8XOhqtFEZVTzU";
+  const EMAILJS_SERVICE  = "service_03h2h2o";
+  const EMAILJS_TEMPLATE = "template_bo23zdq";
+  const ALERT_RECIPIENTS = ["mitie.stocklist.alerts.email@gmail.com"];
+
+  // --- Roles (simple PIN, no login screen) ---
+  const ADMIN_PIN = "123123"; // ← change this!
+
+  /* =========================
+     1) LIB HELPERS
+  ========================== */
   function $(id){ return document.getElementById(id); }
-  function djb2(str){ var h=5381; for(var i=0;i<str.length;i++){ h=((h<<5)+h)+str.charCodeAt(i); } return (h>>>0).toString(36); }
+  function djb2(str){ var h=5381; for(var i=0;i<str.length;i++){ h=((h<<5)+h)+str.charCodeAt(i);} return (h>>>0).toString(36); }
   function canon(obj){ return JSON.stringify(obj, Object.keys(obj).sort()); }
-  function save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
-  function load(k){ try{return JSON.parse(localStorage.getItem(k)||"null");}catch(e){return null;} }
-  function toCSV(rows){
-    return rows.map(r => r.map(x => {
-      var s = String(x==null ? "" : x);
-      if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
-      return s;
-    }).join(",")).join("\n");
-  }
+  function toCSV(rows){ return rows.map(r=>r.map(x=>{var s=String(x??""); if(/[",\n]/.test(s)) s='"'+s.replace(/"/g,'""')+'"'; return s;}).join(",")).join("\n"); }
 
-  // -------- State --------
-  var INV_KEY = "qrstock_inventory_v1";
-  var inventory = load(INV_KEY) || {};     // key -> { details, count }
+  /* =========================
+     2) INIT: Firebase + EmailJS
+  ========================== */
+  firebase.initializeApp(firebaseConfig);
+  const db   = firebase.firestore();
+  const auth = firebase.auth();
+  // No sign-in UI — silent anonymous session (needed for Firestore; rules can allow anon)
+  auth.signInAnonymously().catch(console.warn);
 
-  // -------- Tabs --------
-  document.querySelectorAll(".tab-btn").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
-      btn.classList.add("active");
-      var tab = btn.dataset.tab;
-      ["create","scan","view"].forEach(t => $("tab-"+t).classList.toggle("hidden", t!==tab));
+  emailjs.init(EMAILJS_PUBLIC);
+
+  /* =========================
+     3) ROLES (Admin PIN)
+  ========================== */
+  let role = localStorage.getItem("qr_role") || "viewer";
+  function applyRole(){
+    $("roleLabel").textContent = role === "admin" ? "Admin" : "Viewer";
+    document.querySelectorAll(".admin-only").forEach(el=>{
+      el.style.display = (role==="admin") ? "" : "none";
     });
+  }
+  $("btnSetRole").addEventListener("click", ()=>{
+    const pin = prompt("Enter Admin PIN:");
+    if(pin === ADMIN_PIN){ role="admin"; localStorage.setItem("qr_role","admin"); }
+    else { role="viewer"; localStorage.setItem("qr_role","viewer"); }
+    applyRole();
   });
+  applyRole();
 
-  // -------- Create QR --------
+  /* =========================
+     4) CREATE TAB
+  ========================== */
   function buildPayload(){
-    var obj = {
-      v: 1,
+    const obj = {
+      v:1,
       name: $("c-name").value.trim(),
       supplier: $("c-supplier").value.trim(),
       date: $("c-date").value || "",
       category: $("c-category").value.trim(),
       notes: $("c-notes").value.trim()
     };
-    Object.keys(obj).forEach(k => { if (!obj[k]) delete obj[k]; });
-    var json = canon(obj);
-    var text = "ITEMQR:" + json;
-    var key = djb2(json);
+    Object.keys(obj).forEach(k=>{ if(!obj[k]) delete obj[k]; });
+    const json = canon(obj);
+    const text = "ITEMQR:" + json;
+    const key  = djb2(json);
     return { obj, json, text, key };
   }
 
   $("btn-generate").addEventListener("click", ()=>{
-    var p = buildPayload();
-    if (!p.obj.name) { alert("Item name is required"); return; }
+    const p = buildPayload();
+    if(!p.obj.name){ alert("Item name is required"); return; }
     $("payload").textContent = p.text;
     $("qrPlaceholder").classList.add("hidden");
     $("qrCanvas").classList.remove("hidden");
-    QRCode.toCanvas($("qrCanvas"), p.text, { width: 220 });
+    QRCode.toCanvas($("qrCanvas"), p.text, { width: 240 });
     $("btn-download").classList.remove("hidden");
     $("btn-print").classList.remove("hidden");
-    $("btn-download")._payload = p;
+    $("qrCanvas").dataset.payload = p.text;
   });
 
   $("btn-clear-create").addEventListener("click", ()=>{
-    ["c-name","c-supplier","c-date","c-category","c-notes"].forEach(id => $(id).value="");
-    $("payload").textContent = "";
+    ["c-name","c-supplier","c-date","c-category","c-notes"].forEach(id=>$(id).value="");
+    $("payload").textContent="";
     $("qrCanvas").classList.add("hidden");
     $("qrPlaceholder").classList.remove("hidden");
     $("btn-download").classList.add("hidden");
     $("btn-print").classList.add("hidden");
   });
 
-  $("btn-download").addEventListener("click", function(){
-    var p = this._payload;
-    var link = document.createElement("a");
-    link.download = (p && p.obj.name ? p.obj.name.replace(/\s+/g,"_") : "qr") + ".png";
-    link.href = $("qrCanvas").toDataURL();
-    link.click();
+  $("btn-download").addEventListener("click", ()=>{
+    const a = document.createElement("a");
+    a.download = "qr.png";
+    a.href = $("qrCanvas").toDataURL();
+    a.click();
   });
 
   $("btn-print").addEventListener("click", ()=>{
-    var dataUrl = $("qrCanvas").toDataURL();
-    var w = window.open("", "_blank");
-    if (!w) { alert("Popup blocked. Allow popups to print."); return; }
-    w.document.write("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Print QR</title></head><body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'><img src='"+dataUrl+"' width='300'></body></html>");
+    const dataUrl = $("qrCanvas").toDataURL();
+    const w = window.open("", "_blank");
+    if(!w){ alert("Popup blocked. Allow popups to print."); return; }
+    w.document.write("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Print QR</title></head><body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'><img src='"+dataUrl+"' width='320'></body></html>");
     w.document.close(); w.focus(); w.print();
   });
 
-  // -------- Scan (camera support) --------
-  var support = $("support");
-  var hasBarcode = ("BarcodeDetector" in window);
-  var detector = hasBarcode ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
-  var stream = null;
+  /* =========================
+     5) FIRESTORE: Inventory
+  ========================== */
+  const inv = db.collection("inventory"); // docId = item key
+  // We send emails when count hits 2; avoid spam via alertSent flag in doc
+  async function updateStock(key, details, delta){
+    const ref = inv.doc(key);
+    const snap = await ref.get();
+    if(snap.exists){
+      const data = snap.data() || {};
+      let newCount = (data.count||0) + delta;
+      if(newCount < 0) newCount = 0;
 
-  support.textContent = hasBarcode
-    ? "Camera scanning supported."
-    : "Camera scanning not supported — use manual field.";
-
-  $("btn-start").addEventListener("click", async ()=>{
-    if (!detector) { alert("BarcodeDetector not supported in this browser. Use manual paste."); return; }
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      $("video").srcObject = stream;
-      $("video").classList.remove("hidden");
-      scanLoop();
-    } catch (err) {
-      alert("Camera error: " + err.message);
-    }
-  });
-
-  $("btn-stop").addEventListener("click", ()=>{
-    if (stream) { stream.getTracks().forEach(t=>t.stop()); stream = null; }
-    $("video").classList.add("hidden");
-  });
-
-  async function scanLoop(){
-    if (!stream) return;
-    try {
-      var codes = await detector.detect($("video"));
-      if (codes.length > 0) {
-        var raw = codes[0].rawValue.trim();
-        applyPayload(raw);
+      let newAlertSent = data.alertSent || false;
+      // If it hits 2 and wasn't alerted, send now
+      if(newCount === 2 && !newAlertSent){
+        await sendLowStockEmails(details.name, newCount, key);
+        newAlertSent = true;
       }
-    } catch (e) { /* ignore frame errors */ }
-    requestAnimationFrame(scanLoop);
+      // If it goes above 2, reset flag so future drops to 2 alert again
+      if(newCount > 2 && newAlertSent) newAlertSent = false;
+
+      await ref.update({ count: newCount, details: details || data.details || {}, alertSent: newAlertSent });
+    } else {
+      const initialCount = Math.max(0, delta);
+      const alertSent = (initialCount === 2);
+      if(alertSent) await sendLowStockEmails(details.name, initialCount, key);
+      await ref.set({ details: details, count: initialCount, alertSent: alertSent });
+    }
   }
 
-  $("btn-apply").addEventListener("click", ()=>{
-    var raw = $("manual").value.trim();
-    if (raw) applyPayload(raw);
-  });
+  async function deleteItem(key){
+    if(role!=="admin"){ alert("Admin only."); return; }
+    await inv.doc(key).delete();
+  }
 
+  async function clearAll(){
+    if(role!=="admin"){ alert("Admin only."); return; }
+    if(!confirm("Delete ALL items?")) return;
+    const snap = await inv.get();
+    const batch = db.batch();
+    snap.forEach(doc=>batch.delete(doc.ref));
+    await batch.commit();
+  }
+
+  /* =========================
+     6) EMAIL (EmailJS)
+  ========================== */
+  async function sendLowStockEmails(itemName, count, key){
+    const tasks = ALERT_RECIPIENTS.map(to => emailjs.send(
+      EMAILJS_SERVICE, EMAILJS_TEMPLATE,
+      { to_email: to, item: itemName, stock: String(count), key: key }
+    ));
+    try{
+      await Promise.all(tasks);
+      console.log("Low-stock emails sent for", itemName, "key:", key);
+    }catch(err){
+      console.warn("EmailJS error:", err);
+    }
+  }
+
+  /* =========================
+     7) SCANNERS (Add / Remove)
+     NOTE: No Firestore listeners here; just direct writes.
+  ========================== */
   function parsePayload(raw){
-    if (!raw.startsWith("ITEMQR:")) return null;
+    if(!raw || raw.indexOf("ITEMQR:")!==0) return null;
     try {
-      var json = raw.slice(7);
-      var obj = JSON.parse(json);
-      if (obj && obj.v === 1 && obj.name) {
-        return { obj, json, key: djb2(json) };
+      const obj = JSON.parse(raw.slice(7));
+      if(obj && obj.v===1 && obj.name){
+        const key = djb2(canon(obj));
+        return { key, details: obj };
       }
     } catch(e){}
     return null;
   }
 
-  function applyPayload(raw){
-    $("scan-result").textContent = "Scanned: " + raw.slice(0,80) + (raw.length>80 ? "…" : "");
-    var parsed = parsePayload(raw);
-    if (!parsed) { alert("Unrecognized QR format. Expected ITEMQR:{...}"); return; }
-    if (!inventory[parsed.key]) inventory[parsed.key] = { details: parsed.obj, count: 0 };
-    inventory[parsed.key].count += 1;
-    save(INV_KEY, inventory);
-    renderTable();
-  }
-
-  // -------- View (with + / − buttons) --------
-  function renderTable(){
-    var q = ($("search").value || "").toLowerCase();
-    var tbody = $("tbl").querySelector("tbody");
-    tbody.innerHTML = "";
-    Object.keys(inventory).sort().forEach(key=>{
-      var rec = inventory[key], d = rec.details || {};
-      var hay = [d.name||"", d.supplier||"", d.category||"", d.notes||""].join(" ").toLowerCase();
-      if (q && !hay.includes(q)) return;
-      var tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td>"+(rec.count||0)+"</td>"+
-        "<td>"+(d.name||"")+"</td>"+
-        "<td>"+(d.supplier||"")+"</td>"+
-        "<td>"+(d.category||"")+"</td>"+
-        "<td>"+(d.notes||"")+"</td>"+
-        "<td class='mono'>"+key+"</td>"+
-        "<td>"+
-          "<button class='btn-qty' data-act='dec' data-key='"+key+"'>−</button> "+
-          "<button class='btn-qty' data-act='inc' data-key='"+key+"'>+</button>"+
-        "</td>";
-      tbody.appendChild(tr);
+  // Scan (Add)
+  let scannerAdd;
+  function startAdd(){
+    if(scannerAdd){ try{scannerAdd.stop();}catch{} }
+    scannerAdd = new Html5Qrcode("reader-add");
+    scannerAdd.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      async (decoded) => {
+        $("scan-result-add").textContent = "Scanned: " + decoded.slice(0,80);
+        const p = parsePayload(decoded);
+        if(!p){ alert("Invalid QR"); return; }
+        await updateStock(p.key, p.details, +1);
+      },
+      (err)=>{}
+    ).catch(err=>{
+      $("scan-result-add").textContent = "Camera error: " + err;
     });
   }
 
-  $("search").addEventListener("input", renderTable);
+  // Scan (Remove)
+  let scannerRm;
+  function startRm(){
+    if(scannerRm){ try{scannerRm.stop();}catch{} }
+    scannerRm = new Html5Qrcode("reader-rm");
+    scannerRm.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      async (decoded) => {
+        $("scan-result-rm").textContent = "Scanned: " + decoded.slice(0,80);
+        const p = parsePayload(decoded);
+        if(!p){ alert("Invalid QR"); return; }
+        await updateStock(p.key, p.details, -1);
+      },
+      (err)=>{}
+    ).catch(err=>{
+      $("scan-result-rm").textContent = "Camera error: " + err;
+    });
+  }
 
-  document.querySelector("#tbl tbody").addEventListener("click", (e)=>{
-    var btn = e.target.closest("button"); if (!btn) return;
-    var key = btn.getAttribute("data-key"); if (!key || !inventory[key]) return;
-    var act = btn.getAttribute("data-act");
-    if (act === "inc") inventory[key].count += 1;
-    if (act === "dec" && inventory[key].count > 0) inventory[key].count -= 1;
-    save(INV_KEY, inventory);
-    renderTable();
+  /* =========================
+     8) VIEW (Live Dashboard)
+     One realtime listener ONLY here.
+  ========================== */
+  let unsub = null;
+  function attachLiveDashboard(){
+    if(unsub){ unsub(); unsub=null; }
+    try{
+      unsub = inv.onSnapshot(snap=>{
+        $("liveState").textContent = "Live: connected";
+        renderTableFromSnapshot(snap);
+      }, err=>{
+        $("liveState").textContent = "Live: error";
+        console.warn(err);
+      });
+    }catch(e){
+      $("liveState").textContent = "Live: not available";
+    }
+  }
+
+  function renderTableFromSnapshot(snap){
+    const q = ($("search").value || "").toLowerCase();
+    const tbody = document.querySelector("#tbl tbody");
+    tbody.innerHTML = "";
+    const rows = [];
+    snap.forEach(doc=>{
+      const d = doc.data() || {};
+      const rec = d.details || {};
+      const k = doc.id;
+      rows.push({k, count: d.count||0, rec});
+    });
+    rows
+      .sort((a,b)=>a.rec.name?.localeCompare(b.rec.name||"")||0)
+      .forEach(({k,count,rec})=>{
+        const hay = [rec.name||"", rec.supplier||"", rec.category||"", rec.notes||""].join(" ").toLowerCase();
+        if(q && !hay.includes(q)) return;
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          `<td>${count}</td>
+           <td>${rec.name||""}</td>
+           <td>${rec.supplier||""}</td>
+           <td>${rec.category||""}</td>
+           <td>${rec.notes||""}</td>
+           <td class="mono">${k}</td>
+           <td>
+             <button class="btn-qty" data-act="dec" data-key="${k}">−</button>
+             <button class="btn-qty" data-act="inc" data-key="${k}">+</button>
+           </td>
+           <td class="admin-only">
+             <button class="warn" data-act="del" data-key="${k}">Delete</button>
+           </td>`;
+        tbody.appendChild(tr);
+      });
+    // apply role visibility for admin column each render
+    applyRole();
+  }
+
+  $("search").addEventListener("input", ()=>{
+    // force a quick re-render using last snapshot if available
+    // (for simplicity, pull fresh; still only one listener)
+    inv.get().then(renderTableFromSnapshot);
   });
 
-  $("btn-export").addEventListener("click", ()=>{
-    var header = ["Count","Name","Supplier","Category","Notes","Key"];
-    var rows = [header];
-    Object.keys(inventory).forEach(k=>{
-      var r = inventory[k], d = r.details || {};
-      rows.push([r.count||0, d.name||"", d.supplier||"", d.category||"", d.notes||"", k]);
+  document.querySelector("#tbl tbody").addEventListener("click", async (e)=>{
+    const b = e.target.closest("button"); if(!b) return;
+    const key = b.getAttribute("data-key");
+    const act = b.getAttribute("data-act");
+    const doc = await inv.doc(key).get();
+    if(!doc.exists) return;
+    const data = doc.data()||{};
+    const details = data.details||{};
+    if(act==="inc"){ await updateStock(key, details, +1); }
+    if(act==="dec"){ await updateStock(key, details, -1); }
+    if(act==="del"){
+      if(role!=="admin"){ alert("Admin only."); return; }
+      if(confirm("Delete item?")) await deleteItem(key);
+    }
+  });
+
+  $("btn-export").addEventListener("click", async ()=>{
+    const snap = await inv.get();
+    const rows = [["Count","Name","Supplier","Category","Notes","Key"]];
+    snap.forEach(doc=>{
+      const d=doc.data()||{}, r=d.details||{};
+      rows.push([d.count||0, r.name||"", r.supplier||"", r.category||"", r.notes||"", doc.id]);
     });
-    var blob = new Blob([toCSV(rows)], {type:"text/csv"});
-    var a = document.createElement("a");
+    const blob = new Blob([toCSV(rows)], {type:"text/csv"});
+    const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "inventory.csv";
     a.click();
   });
 
-  $("btn-clear-inventory").addEventListener("click", ()=>{
-    if (!confirm("Clear all inventory?")) return;
-    inventory = {};
-    save(INV_KEY, inventory);
-    renderTable();
+  $("btn-clear").addEventListener("click", clearAll);
+
+  /* =========================
+     9) TAB SWITCHING
+     (Start scanners only when tab visible)
+  ========================== */
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = btn.dataset.tab;
+      ["create","scanadd","view","scanrm"].forEach(t=>{
+        $("tab-"+t).classList.toggle("hidden", t!==tab);
+      });
+      // manage features per tab
+      if(tab==="scanadd"){ startAdd(); }
+      if(tab==="scanrm"){ startRm(); }
+      if(tab==="view"){ attachLiveDashboard(); }
+      if(tab!=="view"){ if(unsub){ try{unsub();}catch{} unsub=null; $("liveState").textContent="Live: disconnected"; } }
+      if(tab!=="scanadd" && scannerAdd){ try{scannerAdd.stop();}catch{} $("reader-add").innerHTML=""; }
+      if(tab!=="scanrm"  && scannerRm ){ try{scannerRm.stop();}catch{}  $("reader-rm").innerHTML=""; }
+    });
   });
 
-  // Init
-  renderTable();
+  // Default: attach dashboard listener once we land on View
+  // (Tab 3 is not default; so no listener until clicked)
+
 })();
 </script>
 </body>
